@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "genome-loader"
+version = "0.1.0"
+description = ""
+authors = ["illumination-k <illumination.k.27@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "genome_loader"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.28.1"
+click = "^8.1.3"
+
+
+[tool.poetry.group.dev.dependencies]
+flake8 = "^5.0.4"
+mypy = "^0.982"
+pytest = "^7.2.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
