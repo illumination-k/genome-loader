@@ -2,9 +2,9 @@ from typing import Literal
 
 import click
 
-from genome_loader.logger_utils import set_loglevel, LogLevel
 from genome_loader import handlers
 from genome_loader.config import ConfigModel
+from genome_loader.logger_utils import LogLevel, set_loglevel
 
 
 @click.group()

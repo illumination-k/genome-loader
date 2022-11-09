@@ -120,9 +120,7 @@ def sync(config: ConfigModel):
                 )
             )
 
-            dl_and_write(
-                url=d.annotation.url, path=annotation_path, gzip=d.annotation.gzip
-            )
+            dl_and_write(url=d.annotation.url, path=annotation_path, gzip=d.annotation.gzip)
 
             if d.annotation.format == "gff":
                 # convert gff to gtf for more machine freindly format
@@ -154,9 +152,10 @@ def sync(config: ConfigModel):
             if "blast" in tools:
                 blast_script_path = os.path.join(util.scripts_path(), "makeblastdb.sh")
                 from genome_loader.script_templates import blast
+
                 with open(blast_script_path, "w") as w:
                     w.write(blast.template)
-                    
+
             ## Hisat2
 
             ## Bowtie2
