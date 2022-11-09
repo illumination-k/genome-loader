@@ -77,7 +77,7 @@ class GenomeIOUtil:
 
 def gff2gtf(gff_path: str, genome_fasta_path: str):
     # Not basename!
-    filename = os.path.splitext(gff_path)[0]
+    dir_path = os.path.dirname(gff_path)
     command = [
         "gffread",
         "-E",
@@ -85,9 +85,48 @@ def gff2gtf(gff_path: str, genome_fasta_path: str):
         "-g",
         genome_fasta_path,
         "-o",
-        f"{filename}.gtf",
+        f"{os.path.join(dir_path, 'genome')}.gtf",
     ]
     subprocess.run(command)
+
+
+def extract_features(annotation_path: str, genome_fasta_path: str, util: GenomeIOUtil):
+    # extract cds, exon, protein
+    cds_path = os.path.join(util.fasta_path(), "cds.fa")
+    exon_path = os.path.join(util.fasta_path(), "exon.fa")
+    protein_path = os.path.join(util.fasta_path(), "protein.fa")
+
+    base_command = [
+        "gffread",
+        "-E",
+        annotation_path,
+        "-g",
+        genome_fasta_path,
+    ]
+
+    extend_command = []
+
+    if not os.path.exists(cds_path):
+        extend_command += [
+            "-x",
+            cds_path,
+        ]
+
+    if not os.path.exists(exon_path):
+        extend_command += [
+            "-w",
+            exon_path,
+        ]
+
+    if not os.path.exists(protein_path):
+        extend_command += [
+            "-y",
+            protein_path,
+        ]
+
+    if len(extend_command) != 0:
+        command = base_command + extend_command
+        subprocess.run(command)
 
 
 def sync(config: ConfigModel):
@@ -123,7 +162,7 @@ def sync(config: ConfigModel):
             annotation_path = Path(
                 os.path.join(
                     util.annotation_path(),
-                    os.path.basename(d.annotation.url.replace(".gz", "")),
+                    f"genome.{d.annotation.format}",
                 )
             )
 
@@ -133,41 +172,27 @@ def sync(config: ConfigModel):
                 # convert gff to gtf for more machine freindly format
                 gff2gtf(str(annotation_path), genome_fasta_path=str(genome_fasta_path))
 
-            # extract cds, exon, protein
-            cds_path = os.path.join(util.fasta_path(), "cds.fa")
-            exon_path = os.path.join(util.fasta_path(), "exon.fa")
-            protein_path = os.path.join(util.fasta_path(), "protein.fa")
-
-            subprocess.run(
-                [
-                    "gffread",
-                    "-E",
-                    annotation_path,
-                    "-g",
-                    genome_fasta_path,
-                    "-w",
-                    exon_path,
-                    "-x",
-                    cds_path,
-                    "-y",
-                    protein_path,
-                ]
+            extract_features(
+                annotation_path=str(annotation_path),
+                genome_fasta_path=str(genome_fasta_path),
+                util=util,
             )
 
             # generate scripts
-            ## Blast
-            if "blast" in tools:
-                blast_script_path = os.path.join(util.scripts_path(), "makeblastdb.sh")
-                from genome_loader.script_templates import blast
+            from genome_loader import script_templates
 
-                with open(blast_script_path, "w") as w:
-                    w.write(blast.template)
+            tools_map = {
+                "blast": script_templates.blast_template,
+                "hisat2": script_templates.hisat2_template,
+                "bowtie2": script_templates.bowtie2_template,
+                "STAR": script_templates.star_template,
+                "salmon": script_templates.salmon_template,
+            }
 
-            ## Hisat2
-
-            ## Bowtie2
-
-            ## Salmon
+            for k, v in tools_map.items():
+                if k in tools:
+                    with open(os.path.join(util.scripts_path(), f"{k}.sh"), "w") as w:
+                        w.write(v)
 
 
 def genome_add(config_path: str):
@@ -198,6 +223,7 @@ def genome_add(config_path: str):
         idx = genome_names.index(genome_name)
         config.genomes[idx].data.append(new_genome_version)
     else:
-        config.genomes.append(GenomeModel(name=genome_name, data=[genome_version]))
+        config.genomes.append(GenomeModel(name=genome_name, data=[new_genome_version]))
 
-    print(config.json(indent=2))
+    with open(config_path, "w") as w:
+        w.write(config.json(indent=2))

@@ -1,5 +1,3 @@
-from typing import Literal
-
 import click
 
 from genome_loader import handlers
