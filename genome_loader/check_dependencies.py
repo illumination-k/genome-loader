@@ -4,7 +4,7 @@ from typing import List, Literal
 
 logger = logging.getLogger(__name__)
 
-OptionalCommand = Literal["blast", "hista2", "salmon", "bowtie2"]
+OptionalCommand = Literal["blast", "hisat2", "salmon", "bowtie2"]
 
 
 def run(optional_commands: List[str]):
