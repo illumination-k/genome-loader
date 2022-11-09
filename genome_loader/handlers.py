@@ -8,7 +8,14 @@ from pathlib import Path
 
 import requests
 
-from genome_loader.config import ConfigModel
+from genome_loader import infer
+from genome_loader.config import (
+    ConfigModel,
+    GenomeAnnotationModel,
+    GenomeFastaModel,
+    GenomeModel,
+    GenomeVersionModel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +77,7 @@ class GenomeIOUtil:
 
 def gff2gtf(gff_path: str, genome_fasta_path: str):
     # Not basename!
-    filename = os.path.splitext(gff_path)[0]
+    dir_path = os.path.dirname(gff_path)
     command = [
         "gffread",
         "-E",
@@ -78,9 +85,48 @@ def gff2gtf(gff_path: str, genome_fasta_path: str):
         "-g",
         genome_fasta_path,
         "-o",
-        f"{filename}.gtf",
+        f"{os.path.join(dir_path, 'genome')}.gtf",
     ]
     subprocess.run(command)
+
+
+def extract_features(annotation_path: str, genome_fasta_path: str, util: GenomeIOUtil):
+    # extract cds, exon, protein
+    cds_path = os.path.join(util.fasta_path(), "cds.fa")
+    exon_path = os.path.join(util.fasta_path(), "exon.fa")
+    protein_path = os.path.join(util.fasta_path(), "protein.fa")
+
+    base_command = [
+        "gffread",
+        "-E",
+        annotation_path,
+        "-g",
+        genome_fasta_path,
+    ]
+
+    extend_command = []
+
+    if not os.path.exists(cds_path):
+        extend_command += [
+            "-x",
+            cds_path,
+        ]
+
+    if not os.path.exists(exon_path):
+        extend_command += [
+            "-w",
+            exon_path,
+        ]
+
+    if not os.path.exists(protein_path):
+        extend_command += [
+            "-y",
+            protein_path,
+        ]
+
+    if len(extend_command) != 0:
+        command = base_command + extend_command
+        subprocess.run(command)
 
 
 def sync(config: ConfigModel):
@@ -95,7 +141,7 @@ def sync(config: ConfigModel):
             util.create_dirs()
 
             def dl_and_write(url: str, path: Path, gzip: bool):
-                if path.exists():
+                if path.exists() and path.stat().st_size >= 10:
                     logger.debug(f"{str(path)} already exists! skip download...")
                     return
 
@@ -116,7 +162,7 @@ def sync(config: ConfigModel):
             annotation_path = Path(
                 os.path.join(
                     util.annotation_path(),
-                    os.path.basename(d.annotation.url.replace(".gz", "")),
+                    f"genome.{d.annotation.format}",
                 )
             )
 
@@ -126,36 +172,58 @@ def sync(config: ConfigModel):
                 # convert gff to gtf for more machine freindly format
                 gff2gtf(str(annotation_path), genome_fasta_path=str(genome_fasta_path))
 
-            # extract cds, exon, protein
-            cds_path = os.path.join(util.fasta_path(), "cds.fa")
-            exon_path = os.path.join(util.fasta_path(), "exon.fa")
-            protein_path = os.path.join(util.fasta_path(), "protein.fa")
-
-            subprocess.run(
-                [
-                    "gffread",
-                    "-E",
-                    annotation_path,
-                    "-g",
-                    genome_fasta_path,
-                    "-w",
-                    exon_path,
-                    "-x",
-                    cds_path,
-                    "-y",
-                    protein_path,
-                ]
+            extract_features(
+                annotation_path=str(annotation_path),
+                genome_fasta_path=str(genome_fasta_path),
+                util=util,
             )
 
             # generate scripts
-            ## Blast
-            if "blast" in tools:
-                blast_script_path = os.path.join(util.scripts_path(), "makeblastdb.sh")
-                from genome_loader.script_templates import blast
+            from genome_loader import script_templates
 
-                with open(blast_script_path, "w") as w:
-                    w.write(blast.template)
+            tools_map = {
+                "blast": script_templates.blast_template,
+                "hisat2": script_templates.hisat2_template,
+                "bowtie2": script_templates.bowtie2_template,
+                "STAR": script_templates.star_template,
+                "salmon": script_templates.salmon_template,
+            }
 
-            ## Hisat2
+            for k, v in tools_map.items():
+                if k in tools:
+                    with open(os.path.join(util.scripts_path(), f"{k}.sh"), "w") as w:
+                        w.write(v)
 
-            ## Bowtie2
+
+def genome_add(config_path: str):
+    config = ConfigModel.parse_file(config_path)
+    genome_names = [genome.name for genome in config.genomes]
+    print("genome name?")
+    print(f"current registered genome names: {' '.join(genome_names)}")
+    genome_name = input()
+    print("genome version?")
+    genome_version = input()
+    print("genomic fasta url?")
+    genomic_fasta_url = input()
+    genomic_fasta_is_gzip = infer.is_gzip(genomic_fasta_url)
+    print("annotation url?")
+    annotation_url = input()
+    annotation_url_is_gzip = infer.is_gzip(annotation_url)
+    annotation_format = infer.annotation_format(annotation_url)
+
+    new_genome_version = GenomeVersionModel(
+        version=genome_version,
+        genome=GenomeFastaModel(url=genomic_fasta_url, gzip=genomic_fasta_is_gzip),
+        annotation=GenomeAnnotationModel(
+            url=annotation_url, gzip=annotation_url_is_gzip, format=annotation_format
+        ),
+    )
+
+    if genome_name in genome_names:
+        idx = genome_names.index(genome_name)
+        config.genomes[idx].data.append(new_genome_version)
+    else:
+        config.genomes.append(GenomeModel(name=genome_name, data=[new_genome_version]))
+
+    with open(config_path, "w") as w:
+        w.write(config.json(indent=2))

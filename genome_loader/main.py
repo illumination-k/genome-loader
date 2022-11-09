@@ -1,5 +1,3 @@
-from typing import Literal
-
 import click
 
 from genome_loader import handlers
@@ -13,12 +11,18 @@ def main(loglevel: LogLevel = "error"):
     set_loglevel(loglevel)
 
 
+config_path = "genomes.json"
+
+
 @main.command("sync")
 def sync():
-    config = "genomes.json"
-    handlers.sync(ConfigModel.parse_file(config))
+    handlers.sync(ConfigModel.parse_file(config_path))
+
+
+@main.command("genome-add")
+def genome_add():
+    handlers.genome_add(config_path)
 
 
 if __name__ == "__main__":
     main()
-
