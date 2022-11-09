@@ -9,7 +9,13 @@ from pathlib import Path
 import requests
 
 from genome_loader import infer
-from genome_loader.config import ConfigModel, GenomeVersionModel, GenomeAnnotationModel, GenomeFastaModel, GenomeModel
+from genome_loader.config import (
+    ConfigModel,
+    GenomeAnnotationModel,
+    GenomeFastaModel,
+    GenomeModel,
+    GenomeVersionModel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,17 +185,19 @@ def genome_add(config_path: str):
     annotation_url = input()
     annotation_url_is_gzip = infer.is_gzip(annotation_url)
     annotation_format = infer.annotation_format(annotation_url)
-    
-    genome_version = GenomeVersionModel(
-        version = genome_version,
+
+    new_genome_version = GenomeVersionModel(
+        version=genome_version,
         genome=GenomeFastaModel(url=genomic_fasta_url, gzip=genomic_fasta_is_gzip),
-        annotation=GenomeAnnotationModel(url=annotation_url, gzip=annotation_url_is_gzip, format=annotation_format)
+        annotation=GenomeAnnotationModel(
+            url=annotation_url, gzip=annotation_url_is_gzip, format=annotation_format
+        ),
     )
-    
+
     if genome_name in genome_names:
         idx = genome_names.index(genome_name)
-        config.genomes[idx].data.append(genome_version)
+        config.genomes[idx].data.append(new_genome_version)
     else:
         config.genomes.append(GenomeModel(name=genome_name, data=[genome_version]))
-    
+
     print(config.json(indent=2))

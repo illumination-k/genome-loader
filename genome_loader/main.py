@@ -15,14 +15,16 @@ def main(loglevel: LogLevel = "error"):
 
 config_path = "genomes.json"
 
+
 @main.command("sync")
 def sync():
     handlers.sync(ConfigModel.parse_file(config_path))
+
 
 @main.command("genome-add")
 def genome_add():
     handlers.genome_add(config_path)
 
+
 if __name__ == "__main__":
     main()
-
