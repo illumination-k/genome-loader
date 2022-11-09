@@ -96,7 +96,7 @@ def sync(config: ConfigModel):
             util.create_dirs()
 
             def dl_and_write(url: str, path: Path, gzip: bool):
-                if path.exists():
+                if path.exists() and path.stat().st_size >= 10:
                     logger.debug(f"{str(path)} already exists! skip download...")
                     return
 

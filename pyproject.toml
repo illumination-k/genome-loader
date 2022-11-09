@@ -47,7 +47,6 @@ exclude = '''
 profile = "black"
 line_length = 100
 
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
