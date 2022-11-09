@@ -8,7 +8,8 @@ from pathlib import Path
 
 import requests
 
-from genome_loader.config import ConfigModel
+from genome_loader import infer
+from genome_loader.config import ConfigModel, GenomeVersionModel, GenomeAnnotationModel, GenomeFastaModel, GenomeModel
 
 logger = logging.getLogger(__name__)
 
@@ -159,3 +160,36 @@ def sync(config: ConfigModel):
             ## Hisat2
 
             ## Bowtie2
+
+            ## Salmon
+
+
+def genome_add(config_path: str):
+    config = ConfigModel.parse_file(config_path)
+    genome_names = [genome.name for genome in config.genomes]
+    print("genome name?")
+    print(f"current registered genome names: {' '.join(genome_names)}")
+    genome_name = input()
+    print("genome version?")
+    genome_version = input()
+    print("genomic fasta url?")
+    genomic_fasta_url = input()
+    genomic_fasta_is_gzip = infer.is_gzip(genomic_fasta_url)
+    print("annotation url?")
+    annotation_url = input()
+    annotation_url_is_gzip = infer.is_gzip(annotation_url)
+    annotation_format = infer.annotation_format(annotation_url)
+    
+    genome_version = GenomeVersionModel(
+        version = genome_version,
+        genome=GenomeFastaModel(url=genomic_fasta_url, gzip=genomic_fasta_is_gzip),
+        annotation=GenomeAnnotationModel(url=annotation_url, gzip=annotation_url_is_gzip, format=annotation_format)
+    )
+    
+    if genome_name in genome_names:
+        idx = genome_names.index(genome_name)
+        config.genomes[idx].data.append(genome_version)
+    else:
+        config.genomes.append(GenomeModel(name=genome_name, data=[genome_version]))
+    
+    print(config.json(indent=2))
