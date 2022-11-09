@@ -159,5 +159,3 @@ def sync(config: ConfigModel):
             ## Hisat2
 
             ## Bowtie2
-
-            ## Salmon
