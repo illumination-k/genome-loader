@@ -24,6 +24,30 @@ black = "^22.10.0"
 isort = "^5.10.1"
 types-requests = "^2.28.11.4"
 
+[tool.mypy]
+namespace_packages = true
+
+[tool.black]
+line-length = 100
+exclude = '''
+/(
+  # These would already be ignored by pants, but having them here allows for manually running Black if one so wishes.
+  | \.git
+  | \.mypy_cache
+  | dist
+  | \.pants\.d
+  | virtualenvs
+  # This file intentionally contains invalid syntax
+  # It trips black up.
+  | compilation_failure
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

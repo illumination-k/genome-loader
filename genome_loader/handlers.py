@@ -113,13 +113,14 @@ def sync(config: ConfigModel):
             dl_and_write(url=d.genome.url, path=genome_fasta_path, gzip=d.genome.gzip)
 
             # download annotation (and convert to gtf)
-            annotation_path = Path(os.path.join(
-                util.annotation_path(), os.path.basename(d.annotation.url.replace(".gz", ""))
-            ))
-            
-            dl_and_write(
-                url=d.annotation.url, path=annotation_path, gzip=d.annotation.gzip
+            annotation_path = Path(
+                os.path.join(
+                    util.annotation_path(),
+                    os.path.basename(d.annotation.url.replace(".gz", "")),
+                )
             )
+
+            dl_and_write(url=d.annotation.url, path=annotation_path, gzip=d.annotation.gzip)
 
             if d.annotation.format == "gff":
                 # convert gff to gtf for more machine freindly format
@@ -145,12 +146,16 @@ def sync(config: ConfigModel):
                     protein_path,
                 ]
             )
-            
+
             # generate scripts
             ## Blast
-            
+            if "blast" in tools:
+                blast_script_path = os.path.join(util.scripts_path(), "makeblastdb.sh")
+                from genome_loader.script_templates import blast
+
+                with open(blast_script_path, "w") as w:
+                    w.write(blast.template)
+
             ## Hisat2
-            
+
             ## Bowtie2
-            
-            ## Salmon
