@@ -26,3 +26,4 @@ example_config = """{
 
 def test_parse_example():
     config = ConfigModel.parse_raw(example_config.encode("utf-8"))
+    assert config.tools == ["blast", "salmon", "hisat2", "bowtie2", "STAR"]

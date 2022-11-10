@@ -7,7 +7,9 @@
   },
   "includes": ["**/*.{json,md,toml}"],
   "excludes": [
-    "**/*-lock.json"
+    "**/*-lock.json",
+    ".mypy_cache/",
+    ".pytest_cache/"
   ],
   "plugins": [
     "https://plugins.dprint.dev/json-0.16.0.wasm",
