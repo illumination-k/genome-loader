@@ -69,7 +69,7 @@ class GenomeIOUtil:
 
     def scripts_path(self) -> Path:
         return Path(os.path.join(self.root_path(), "scripts"))
-    
+
     def meta_path(self) -> Path:
         return Path(os.path.join(self.root_path(), "meta.json"))
 
@@ -135,17 +135,15 @@ def extract_features(annotation_path: str, genome_fasta_path: str, util: GenomeI
         subprocess.run(command)
 
 
-def check_update(
-    url: str, util: GenomeIOUtil, file_type: Literal["genome", "annotation"]
-) -> bool:
+def check_update(url: str, util: GenomeIOUtil, file_type: Literal["genome", "annotation"]) -> bool:
     # check uri is the same as previous and file exists or not
     meta_path = util.meta_path()
-    
+
     # generate file path corresponding to file type
     file_name = "genome.fa" if file_type == "genome" else "genome.gtf"
     file_dir = util.fasta_path() if file_type == "genome" else util.annotation_path()
     file_path = Path(os.path.join(file_dir, file_name))
-    
+
     if os.path.exists(meta_path):
         meta = GenomeVersionModel.parse_file(meta_path)
         prev_url = meta.genome.url if file_type == "genome" else meta.annotation.url
@@ -273,3 +271,10 @@ def genome_add(config_path: str):
 
     with open(config_path, "w") as w:
         w.write(config.json(indent=2))
+
+
+def init():
+    init_config = ConfigModel(tools=["blast", "salmon", "hisat2", "bowtie2", "STAR"], genomes=[])
+
+    with open("genomes.json", "w") as w:
+        w.write(init_config.json(indent=2))

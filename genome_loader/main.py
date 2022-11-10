@@ -9,14 +9,21 @@ from genome_loader.logger_utils import LogLevel, set_loglevel
 @click.option("--loglevel", type=click.Choice(["debug", "info", "warn", "error"]))
 def main(loglevel: LogLevel = "error"):
     import shutil
-    
+
     if shutil.which("gffread") is None:
-        raise RuntimeError("gffread is required! Please install from https://github.com/gpertea/gffread")
-    
+        raise RuntimeError(
+            "gffread is required! Please install from https://github.com/gpertea/gffread"
+        )
+
     set_loglevel(loglevel)
 
 
 config_path = "genomes.json"
+
+
+@main.command("init")
+def init():
+    handlers.init()
 
 
 @main.command("sync")
