@@ -10,6 +10,3 @@
 - init
 - sync
 - genome-add
-- tools-prepare
-- tools-run
-- tools-version

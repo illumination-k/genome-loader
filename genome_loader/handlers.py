@@ -5,6 +5,7 @@ import logging
 import os
 import subprocess
 from pathlib import Path
+from typing import Literal
 
 import requests
 
@@ -68,6 +69,9 @@ class GenomeIOUtil:
 
     def scripts_path(self) -> Path:
         return Path(os.path.join(self.root_path(), "scripts"))
+    
+    def meta_path(self) -> Path:
+        return Path(os.path.join(self.root_path(), "meta.json"))
 
     def create_dirs(self):
         os.makedirs(self.fasta_path(), exist_ok=True)
@@ -129,6 +133,38 @@ def extract_features(annotation_path: str, genome_fasta_path: str, util: GenomeI
         subprocess.run(command)
 
 
+def check_update(
+    url: str, util: GenomeIOUtil, file_type: Literal["genome", "annotation"]
+) -> bool:
+    # check uri is the same as previous and file exists or not
+    meta_path = util.meta_path()
+    file_name = "genome.fa" if file_type == "genome" else "genome.gtf"
+    file_dir = util.fasta_path() if file_type == "genome" else util.annotation_path()
+    
+    file_path = Path(os.path.join(file_dir, file_name))
+    
+    if os.path.exists(meta_path):
+        meta = GenomeVersionModel.parse_file(meta_path)
+        prev_url = meta.genome.url if file_type == "genome" else meta.annotation.url
+
+        if prev_url == url and file_path.exists() and file_path.stat().st_size >= 10:
+            logger.debug(f"{str(file_path)} already exists! skip updating...")
+            return False
+
+    return True
+
+
+def dl_and_write(url: str, path: Path, gzip: bool):
+    r = requests.get(url)
+    if gzip:
+        with gz.open(io.BytesIO(r.content), "rb") as gf:
+            with open(path, "wb") as wb:
+                wb.write(gf.read())
+    else:
+        with open(path, "wb") as wb:
+            wb.write(r.content)
+
+
 def sync(config: ConfigModel):
     tools = config.tools
 
@@ -140,23 +176,17 @@ def sync(config: ConfigModel):
             util = GenomeIOUtil(genome_name, d.version)
             util.create_dirs()
 
-            def dl_and_write(url: str, path: Path, gzip: bool):
-                if path.exists() and path.stat().st_size >= 10:
-                    logger.debug(f"{str(path)} already exists! skip download...")
-                    return
-
-                r = requests.get(url)
-                if gzip:
-                    with gz.open(io.BytesIO(r.content), "rb") as gf:
-                        with open(path, "wb") as wb:
-                            wb.write(gf.read())
-                else:
-                    with open(path, "wb") as wb:
-                        wb.write(r.content)
-
             # download fasta
             genome_fasta_path = Path(os.path.join(util.fasta_path(), "genome.fa"))
-            dl_and_write(url=d.genome.url, path=genome_fasta_path, gzip=d.genome.gzip)
+
+            is_genome_updated = check_update(
+                url=d.genome.url,
+                util=util,
+                file_type="genome",
+            )
+
+            if is_genome_updated:
+                dl_and_write(url=d.genome.url, path=genome_fasta_path, gzip=d.genome.gzip)
 
             # download annotation (and convert to gtf)
             annotation_path = Path(
@@ -166,33 +196,44 @@ def sync(config: ConfigModel):
                 )
             )
 
-            dl_and_write(url=d.annotation.url, path=annotation_path, gzip=d.annotation.gzip)
-
-            if d.annotation.format == "gff":
-                # convert gff to gtf for more machine freindly format
-                gff2gtf(str(annotation_path), genome_fasta_path=str(genome_fasta_path))
-
-            extract_features(
-                annotation_path=str(annotation_path),
-                genome_fasta_path=str(genome_fasta_path),
+            is_annotation_updated = check_update(
+                url=d.annotation.url,
                 util=util,
+                file_type="annotation",
             )
 
-            # generate scripts
-            from genome_loader import script_templates
+            if is_annotation_updated:
+                dl_and_write(url=d.annotation.url, path=annotation_path, gzip=d.annotation.gzip)
+                if d.annotation.format == "gff":
+                    # convert gff to gtf for more machine freindly format
+                    gff2gtf(str(annotation_path), genome_fasta_path=str(genome_fasta_path))
 
-            tools_map = {
-                "blast": script_templates.blast_template,
-                "hisat2": script_templates.hisat2_template,
-                "bowtie2": script_templates.bowtie2_template,
-                "STAR": script_templates.star_template,
-                "salmon": script_templates.salmon_template,
-            }
+                extract_features(
+                    annotation_path=str(annotation_path),
+                    genome_fasta_path=str(genome_fasta_path),
+                    util=util,
+                )
 
-            for k, v in tools_map.items():
-                if k in tools:
-                    with open(os.path.join(util.scripts_path(), f"{k}.sh"), "w") as w:
-                        w.write(v)
+            # generate scripts if any update occured
+            if is_annotation_updated or is_genome_updated:
+                from genome_loader import script_templates
+
+                tools_map = {
+                    "blast": script_templates.blast_template,
+                    "hisat2": script_templates.hisat2_template,
+                    "bowtie2": script_templates.bowtie2_template,
+                    "STAR": script_templates.star_template,
+                    "salmon": script_templates.salmon_template,
+                }
+
+                for k, v in tools_map.items():
+                    if k in tools:
+                        with open(os.path.join(util.scripts_path(), f"{k}.sh"), "w") as w:
+                            w.write(v)
+
+            # save meta file
+            with open(util.meta_path(), "w") as w:
+                w.write(d.json(indent=2))
 
 
 def genome_add(config_path: str):
