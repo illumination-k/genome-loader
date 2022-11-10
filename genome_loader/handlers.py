@@ -91,6 +91,7 @@ def gff2gtf(gff_path: str, genome_fasta_path: str):
         "-o",
         f"{os.path.join(dir_path, 'genome')}.gtf",
     ]
+    logger.debug(f"command of gff2gtf: f{' '.join(command)}")
     subprocess.run(command)
 
 
@@ -130,6 +131,7 @@ def extract_features(annotation_path: str, genome_fasta_path: str, util: GenomeI
 
     if len(extend_command) != 0:
         command = base_command + extend_command
+        logger.debug(f"command of extract features by gffread: f{' '.join(command)}")
         subprocess.run(command)
 
 
@@ -138,9 +140,10 @@ def check_update(
 ) -> bool:
     # check uri is the same as previous and file exists or not
     meta_path = util.meta_path()
+    
+    # generate file path corresponding to file type
     file_name = "genome.fa" if file_type == "genome" else "genome.gtf"
     file_dir = util.fasta_path() if file_type == "genome" else util.annotation_path()
-    
     file_path = Path(os.path.join(file_dir, file_name))
     
     if os.path.exists(meta_path):
@@ -230,6 +233,8 @@ def sync(config: ConfigModel):
                     if k in tools:
                         with open(os.path.join(util.scripts_path(), f"{k}.sh"), "w") as w:
                             w.write(v)
+            else:
+                logger.debug("No update!")
 
             # save meta file
             with open(util.meta_path(), "w") as w:
