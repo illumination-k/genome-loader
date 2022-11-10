@@ -8,6 +8,11 @@ from genome_loader.logger_utils import LogLevel, set_loglevel
 @click.group()
 @click.option("--loglevel", type=click.Choice(["debug", "info", "warn", "error"]))
 def main(loglevel: LogLevel = "error"):
+    import shutil
+    
+    if shutil.which("gffread") is None:
+        raise RuntimeError("gffread is required! Please install from https://github.com/gpertea/gffread")
+    
     set_loglevel(loglevel)
 
 
