@@ -6,3 +6,5 @@ dist/
 mpolymorpha/
 athaliana/
 /genomes.json
+
+poetry.lock
